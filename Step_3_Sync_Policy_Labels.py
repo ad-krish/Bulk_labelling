@@ -294,8 +294,8 @@ def build_update_payload(policy_data: dict, label_mappings: dict) -> tuple:
         
         updated_items.append(updated_item)
     
-    backing_asset = rule.get("backingAsset", {})
-    notification_channels = rule.get("notificationChannels", {})
+    backing_asset = rule.get("backingAsset") or {}
+    notification_channels = rule.get("notificationChannels") or {}
     
     payload = {
         "rule": {

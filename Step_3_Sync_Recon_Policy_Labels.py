@@ -265,10 +265,10 @@ def build_update_payload(policy_data: dict, label_mappings: dict) -> tuple:
         })
     
     # Build the rule object
-    left_backing_asset = rule.get("leftBackingAsset", {})
-    right_backing_asset = rule.get("rightBackingAsset", {})
-    notification_channels = rule.get("notificationChannels", {})
-    spark_resource_config = rule.get("sparkResourceConfig", {})
+    left_backing_asset = rule.get("leftBackingAsset") or {}
+    right_backing_asset = rule.get("rightBackingAsset") or {}
+    notification_channels = rule.get("notificationChannels") or {}
+    spark_resource_config = rule.get("sparkResourceConfig") or {}
     
     payload = {
         "rule": {
