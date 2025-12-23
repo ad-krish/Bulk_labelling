@@ -60,7 +60,12 @@ def compute_hash(expression: str) -> str:
 
 
 def get_column_name(item: dict) -> str:
-    """Determine the Column_Name based on measurementType."""
+    """
+    Determine the Column_Name based on measurementType.
+    
+    Column-based rules include measurementType prefix to handle
+    cases where same column has multiple rule types.
+    """
     measurement_type = item.get("measurementType", "")
     column_name = item.get("columnName", "")
     
@@ -79,7 +84,14 @@ def get_column_name(item: dict) -> str:
     elif measurement_type == "SIZE_CHECK":
         return "SIZE_CHECK"
     else:
-        return column_name
+        # Include measurementType to ensure uniqueness when same column
+        # has multiple rule types
+        if column_name and measurement_type:
+            return f"{measurement_type}-{column_name}"
+        elif column_name:
+            return column_name
+        else:
+            return measurement_type or "UNKNOWN"
 
 
 # ============================================================

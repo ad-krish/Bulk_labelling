@@ -35,7 +35,11 @@ def get_column_name(item: dict) -> str:
     - SQL_METRIC: "SQL_METRIC-{hash of ruleExpression}"
     - UDF_PREDICATE: "UDF_PREDICATE-{value.udfId}"
     - SIZE_CHECK: "SIZE_CHECK"
-    - Otherwise: use columnName from the item
+    - Otherwise: "{measurementType}-{columnName}" to ensure uniqueness
+    
+    Note: Column-based rules now include measurementType prefix to handle
+    cases where same column has multiple rule types (e.g., MISSING_VALUES
+    and UNIQUE_VALUES on the same column).
     """
     measurement_type = item.get("measurementType", "")
     column_name = item.get("columnName", "")
@@ -59,7 +63,14 @@ def get_column_name(item: dict) -> str:
         return "SIZE_CHECK"
     
     else:
-        return column_name
+        # Include measurementType to ensure uniqueness when same column
+        # has multiple rule types
+        if column_name and measurement_type:
+            return f"{measurement_type}-{column_name}"
+        elif column_name:
+            return column_name
+        else:
+            return measurement_type or "UNKNOWN"
 
 
 async def fetch_policy_details(session, policy_id):
