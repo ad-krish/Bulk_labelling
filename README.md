@@ -34,6 +34,10 @@ RULE_TYPE=DATA_QUALITY,EQUALITY
 # Optional parameters - leave empty or comment out if not needed
 TAG=your_tag_id
 #ASSEMBLY_IDS=
+
+# Label Options
+# Set to true to remove existing labels and re-add them from CSV
+OVERRIDE_LABELS=false
 ```
 
 ## 📁 Scripts
@@ -258,7 +262,7 @@ python Step_3_Sync_Policy_Labels.py
 
 2. **Version 1:** Initial fetch always uses version 1 to capture the original Rule_IDs.
 
-3. **Label Behavior:** Labels are checked by **key only**:
+3. **Label Behavior (Normal Mode - OVERRIDE_LABELS=false):**
 
    | Server Has | CSV Has | Result |
    |------------|---------|--------|
@@ -267,6 +271,23 @@ python Step_3_Sync_Policy_Labels.py
    | `key: "A", value: "999"` | `key: "A", value: "123"` | ⏭️ Skipped (key exists) |
 
    > The script does NOT update existing labels. If a label with the same key exists (regardless of value), it is skipped.
+
+4. **Override Mode (OVERRIDE_LABELS=true):**
+   
+   When enabled, the script will:
+   - **Remove ALL existing labels** from each rule
+   - **Re-add labels** from the CSV
+   
+   Use this when you need to:
+   - Fix incorrect label values
+   - Sync labels after CSV changes
+   - Clean up and re-apply all labels
+   
+   ```env
+   OVERRIDE_LABELS=true
+   ```
+   
+   ⚠️ **Warning:** This will remove any manually added labels not in the CSV.
 
 ---
 

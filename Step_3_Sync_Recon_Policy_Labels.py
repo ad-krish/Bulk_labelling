@@ -24,6 +24,9 @@ HEADERS = {
 # File paths
 RECON_POLICY_DETAILS_CSV = "Recon_Policy_Rule_Details.csv"
 
+# Label options
+OVERRIDE_LABELS = os.getenv("OVERRIDE_LABELS", "false").lower() == "true"
+
 
 def build_params():
     """Build query parameters from config.env."""
@@ -203,6 +206,7 @@ def build_update_payload(policy_data: dict, label_mappings: dict) -> tuple:
         value = ORIGINAL Rule_ID from when the rule was first added (from CSV)
     
     Matching is done by column names (since mapping IDs change between versions).
+    If OVERRIDE_LABELS is True, removes existing labels and re-adds from CSV.
     """
     rule = policy_data.get("rule", {})
     details = policy_data.get("details", {})
@@ -211,6 +215,7 @@ def build_update_payload(policy_data: dict, label_mappings: dict) -> tuple:
     
     labels_added = []
     labels_skipped = []
+    labels_removed = []
     
     # Build the mappings array with labels
     updated_mappings = []
@@ -223,17 +228,28 @@ def build_update_payload(policy_data: dict, label_mappings: dict) -> tuple:
         existing_labels = mapping.get("labels", [])
         existing_label_keys = {label.get("key") for label in existing_labels if label.get("key")}
         
-        # Check if we have a label mapping for this column pair
-        if mapping_key in label_mappings:
-            original_rule_id = label_mappings[mapping_key]  # Use original Rule_ID from CSV
+        if OVERRIDE_LABELS:
+            # Remove all existing labels and add fresh from CSV
+            if existing_labels:
+                labels_removed.extend([l.get("key") for l in existing_labels if l.get("key")])
+            existing_labels = []  # Clear existing labels
             
-            if mapping_key in existing_label_keys:
-                labels_skipped.append(mapping_key)
-            else:
-                # Add label with ORIGINAL Rule_ID from when rule was first added
+            if mapping_key in label_mappings:
+                original_rule_id = label_mappings[mapping_key]
                 new_label = {"key": mapping_key, "value": str(original_rule_id)}
                 existing_labels.append(new_label)
                 labels_added.append(mapping_key)
+        else:
+            # Normal mode: only add if not exists
+            if mapping_key in label_mappings:
+                original_rule_id = label_mappings[mapping_key]
+                
+                if mapping_key in existing_label_keys:
+                    labels_skipped.append(mapping_key)
+                else:
+                    new_label = {"key": mapping_key, "value": str(original_rule_id)}
+                    existing_labels.append(new_label)
+                    labels_added.append(mapping_key)
         
         updated_mapping = {
             "id": mapping.get("id"),
@@ -409,6 +425,9 @@ async def main():
     print("=" * 70)
     print("Sync Recon Policy Labels - Combined Update & Label Script")
     print("=" * 70)
+    
+    if OVERRIDE_LABELS:
+        print("⚠️  OVERRIDE MODE: Existing labels will be REMOVED and re-added from CSV")
     
     # Read existing CSV
     existing_rows, existing_mapping_keys, policy_labels = read_existing_csv(RECON_POLICY_DETAILS_CSV)

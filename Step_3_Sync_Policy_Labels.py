@@ -25,6 +25,9 @@ HEADERS = {
 # File paths
 POLICY_DETAILS_CSV = "Policy_Rule_Details.csv"
 
+# Label options
+OVERRIDE_LABELS = os.getenv("OVERRIDE_LABELS", "false").lower() == "true"
+
 
 def build_params():
     """Build query parameters from config.env."""
@@ -262,13 +265,17 @@ async def update_policy(session, policy_id, payload):
 
 
 def build_update_payload(policy_data: dict, label_mappings: dict) -> tuple:
-    """Build the PUT payload by adding labels to items."""
+    """Build the PUT payload by adding labels to items.
+    
+    If OVERRIDE_LABELS is True, removes existing labels and re-adds from CSV.
+    """
     rule = policy_data.get("rule", {})
     details = policy_data.get("details", {})
     items = details.get("items", [])
     
     labels_added = []
     labels_skipped = []
+    labels_removed = []
     
     updated_items = []
     for item in items:
@@ -276,15 +283,28 @@ def build_update_payload(policy_data: dict, label_mappings: dict) -> tuple:
         existing_labels = item.get("labels", [])
         existing_label_keys = {label.get("key") for label in existing_labels if label.get("key")}
         
-        if item_column_key in label_mappings:
-            rule_id = label_mappings[item_column_key]
+        if OVERRIDE_LABELS:
+            # Remove all existing labels and add fresh from CSV
+            if existing_labels:
+                labels_removed.extend([l.get("key") for l in existing_labels if l.get("key")])
+            existing_labels = []  # Clear existing labels
             
-            if item_column_key in existing_label_keys:
-                labels_skipped.append(item_column_key)
-            else:
+            if item_column_key in label_mappings:
+                rule_id = label_mappings[item_column_key]
                 new_label = {"key": item_column_key, "value": str(rule_id)}
                 existing_labels.append(new_label)
                 labels_added.append(item_column_key)
+        else:
+            # Normal mode: only add if not exists
+            if item_column_key in label_mappings:
+                rule_id = label_mappings[item_column_key]
+                
+                if item_column_key in existing_label_keys:
+                    labels_skipped.append(item_column_key)
+                else:
+                    new_label = {"key": item_column_key, "value": str(rule_id)}
+                    existing_labels.append(new_label)
+                    labels_added.append(item_column_key)
         
         updated_item = {
             "measurementType": item.get("measurementType"),
@@ -412,6 +432,9 @@ async def main():
     print("=" * 70)
     print("Sync Policy Labels - Combined Update & Label Script")
     print("=" * 70)
+    
+    if OVERRIDE_LABELS:
+        print("⚠️  OVERRIDE MODE: Existing labels will be REMOVED and re-added from CSV")
     
     # Read existing CSV
     existing_rows, existing_rule_ids, policy_labels = read_existing_csv(POLICY_DETAILS_CSV)
