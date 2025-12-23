@@ -262,7 +262,9 @@ python Step_3_Sync_Policy_Labels.py
 
 2. **Version 1:** Initial fetch always uses version 1 to capture the original Rule_IDs.
 
-3. **Label Behavior (Normal Mode - OVERRIDE_LABELS=false):**
+3. **Version Comparison:** When detecting new rules, the script compares `{measurementType}-{columnName}` (not just `columnName`). This ensures that adding a new rule type (e.g., `VALUES_IN_LIST`) on an existing column (e.g., `COUNTRY` which already has `MISSING_VALUES`) is correctly detected as a new rule.
+
+4. **Label Behavior (Normal Mode - OVERRIDE_LABELS=false):**
 
    | Server Has | CSV Has | Result |
    |------------|---------|--------|
@@ -272,7 +274,7 @@ python Step_3_Sync_Policy_Labels.py
 
    > The script does NOT update existing labels. If a label with the same key exists (regardless of value), it is skipped.
 
-4. **Override Mode (OVERRIDE_LABELS=true):**
+5. **Override Mode (OVERRIDE_LABELS=true):**
    
    When enabled, the script will:
    - **Remove ALL existing labels** from each rule

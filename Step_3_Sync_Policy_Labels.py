@@ -1,5 +1,6 @@
 import asyncio
 import aiohttp
+import ssl
 import csv
 import hashlib
 from dotenv import load_dotenv
@@ -181,7 +182,10 @@ def extract_items_info(data: dict) -> dict:
             info["has_size_check"] = True
         else:
             if column_name:
-                info["column_names"].add(column_name)
+                # Store as measurementType-columnName to ensure uniqueness
+                # when same column has different rule types
+                unique_key = f"{measurement_type}-{column_name}" if measurement_type else column_name
+                info["column_names"].add(unique_key)
     
     return info
 
@@ -217,7 +221,10 @@ def find_new_rules(v1_info: dict, latest_info: dict, policy_id, policy_name) -> 
             if not v1_info.get("has_size_check", False):
                 is_new = True
         else:
-            if column_name and column_name not in v1_info["column_names"]:
+            # Compare using measurementType-columnName to detect new rule types
+            # on existing columns
+            unique_key = f"{measurement_type}-{column_name}" if measurement_type else column_name
+            if column_name and unique_key not in v1_info["column_names"]:
                 is_new = True
         
         if is_new:
@@ -451,7 +458,13 @@ async def main():
     total_labels_skipped = 0
     policies_updated = 0
     
-    async with aiohttp.ClientSession() as session:
+    # Create SSL context that doesn't verify certificates (for testing)
+    ssl_context = ssl.create_default_context()
+    ssl_context.check_hostname = False
+    ssl_context.verify_mode = ssl.CERT_NONE
+    connector = aiohttp.TCPConnector(ssl=ssl_context)
+    
+    async with aiohttp.ClientSession(connector=connector) as session:
         # ============================================================
         # STEP 1: Find new rules (version comparison)
         # ============================================================

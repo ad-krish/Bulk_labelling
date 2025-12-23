@@ -1,5 +1,6 @@
 import asyncio
 import aiohttp
+import ssl
 import csv
 import hashlib
 from dotenv import load_dotenv
@@ -92,7 +93,13 @@ async def process_policies(policy_ids: list) -> list:
     """Process all policies and extract rule details."""
     results = []
     
-    async with aiohttp.ClientSession() as session:
+    # Create SSL context that doesn't verify certificates (for testing)
+    ssl_context = ssl.create_default_context()
+    ssl_context.check_hostname = False
+    ssl_context.verify_mode = ssl.CERT_NONE
+    connector = aiohttp.TCPConnector(ssl=ssl_context)
+    
+    async with aiohttp.ClientSession(connector=connector) as session:
         # Create tasks for all policy fetches
         tasks = [fetch_policy_details(session, pid) for pid in policy_ids]
         
