@@ -170,17 +170,75 @@ python Step_3_Sync_Recon_Policy_Labels.py
 
 ---
 
-## 📊 Special Rule Types
+## 📊 Column_Name Format (Label Key)
 
 For DATA_QUALITY policies, Column_Name is derived based on `measurementType`:
 
-| measurementType | Column_Name Format |
-|-----------------|-------------------|
-| CUSTOM | `CUSTOM-{8-char MD5 hash of ruleExpression}` |
-| SQL_METRIC | `SQL_METRIC-{8-char MD5 hash of ruleExpression}` |
-| UDF_PREDICATE | `UDF_PREDICATE-{udfId}` |
-| SIZE_CHECK | `SIZE_CHECK` |
-| Others | Actual `columnName` value |
+| measurementType | Column_Name Format | Example |
+|-----------------|-------------------|---------|
+| CUSTOM | `CUSTOM-{8-char MD5 hash}` | `CUSTOM-2c8a28c6` |
+| SQL_METRIC | `SQL_METRIC-{8-char MD5 hash}` | `SQL_METRIC-04d97372` |
+| UDF_PREDICATE | `UDF_PREDICATE-{udfId}` | `UDF_PREDICATE-6832` |
+| SIZE_CHECK | `SIZE_CHECK` | `SIZE_CHECK` |
+| MISSING_VALUES | `MISSING_VALUES-{columnName}` | `MISSING_VALUES-COUNTRY` |
+| UNIQUE_VALUES | `UNIQUE_VALUES-{columnName}` | `UNIQUE_VALUES-EMAIL` |
+| All other types | `{measurementType}-{columnName}` | `NULL_CHECK-NAME` |
+
+> **Note:** All column-based rules include the measurementType prefix to ensure uniqueness when the same column has multiple rule types.
+
+---
+
+## 🎯 When to Run Each Step
+
+### Run Only Step 3
+
+```bash
+python Step_3_Sync_Policy_Labels.py
+```
+
+**Use when:**
+- CSVs already exist from a previous run
+- You want to re-apply labels (e.g., labels were removed from server)
+- You want to detect new rules added to existing policies
+- No NEW policies were added
+
+### Run Step 2 + Step 3
+
+```bash
+python Step_2_Fetch_Policy_Details.py
+python Step_3_Sync_Policy_Labels.py
+```
+
+**Use when:**
+- New policies were added (not in current CSV)
+- Code/format changed (need fresh CSV)
+- Existing CSV is corrupted or deleted
+
+### Run All Steps (Step 1 + 2 + 3)
+
+```bash
+python Step_1_Fetch_Policy_ID.py
+python Step_2_Fetch_Policy_Details.py
+python Step_3_Sync_Policy_Labels.py
+```
+
+**Use when:**
+- First time setup
+- New policies created
+- Filters changed in `config.env` (TAG, ASSEMBLY_IDS, etc.)
+- Complete refresh needed
+
+### Quick Reference
+
+| What Changed? | Step 1 | Step 2 | Step 3 |
+|---------------|:------:|:------:|:------:|
+| First time / fresh start | ✅ | ✅ | ✅ |
+| New rules added to existing policies | ❌ | ❌ | ✅ |
+| Labels removed, need to re-add | ❌ | ❌ | ✅ |
+| New policies created | ✅ | ✅ | ✅ |
+| Filters changed in config.env | ✅ | ✅ | ✅ |
+| Code format changed | ❌ | ✅ | ✅ |
+| CSV deleted/corrupted | ❌ | ✅ | ✅ |
 
 ---
 
@@ -198,9 +256,17 @@ For DATA_QUALITY policies, Column_Name is derived based on `measurementType`:
 
 1. **Rule IDs:** For reconciliation policies, mapping IDs change between versions. The scripts match by column names but use the original Rule_ID from when the rule was first added.
 
-2. **Labels:** Labels are only added if they don't already exist (checked by key).
+2. **Version 1:** Initial fetch always uses version 1 to capture the original Rule_IDs.
 
-3. **Version 1:** Initial fetch always uses version 1 to capture the original Rule_IDs.
+3. **Label Behavior:** Labels are checked by **key only**:
+
+   | Server Has | CSV Has | Result |
+   |------------|---------|--------|
+   | No label with this key | `key: "A", value: "123"` | ➕ Added |
+   | `key: "A", value: "123"` | `key: "A", value: "123"` | ⏭️ Skipped |
+   | `key: "A", value: "999"` | `key: "A", value: "123"` | ⏭️ Skipped (key exists) |
+
+   > The script does NOT update existing labels. If a label with the same key exists (regardless of value), it is skipped.
 
 ---
 
